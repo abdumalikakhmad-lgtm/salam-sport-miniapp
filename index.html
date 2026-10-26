@@ -102,6 +102,23 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 @keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .skel{background:linear-gradient(90deg,var(--surface),#ecebeb,var(--surface));background-size:200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
+.hero{margin:12px 16px 4px;border-radius:18px;background:var(--red);color:#fff;padding:18px 18px 16px;position:relative;overflow:hidden}
+.hero h2{font-family:var(--display);font-weight:900;font-size:24px;line-height:1.05;margin:0 0 6px;max-width:70%}
+.hero p{margin:0;font-size:13px;font-weight:600;opacity:.9;max-width:66%}
+.hero .ball{position:absolute;right:-14px;bottom:-18px;font-size:84px;line-height:1;opacity:.95;animation:roll 6s ease-in-out infinite}
+@keyframes roll{0%,100%{transform:rotate(0)}50%{transform:rotate(25deg) translateX(-6px)}}
+.sec{font-family:var(--display);font-weight:800;font-size:18px;margin:16px 16px 10px}
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px}
+.cat{border:0;background:var(--surface);border-radius:14px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;min-width:0;animation:up .4s both}
+.cat .ic{font-size:30px;line-height:1}
+.cat .cn{font-size:12px;font-weight:700;text-align:center;line-height:1.2;min-height:29px;display:flex;align-items:center}
+.cat .cc{font-size:11px;font-weight:700;color:var(--red)}
+.cat.soon{opacity:.55}
+.cat.soon .cc{color:var(--muted)}
+.cat.on{background:var(--red-soft);outline:2px solid var(--red)}
+.chead{display:flex;align-items:center;gap:10px;margin:2px 16px 10px}
+.chead .ic{font-size:30px}
+.chead h1{font-family:var(--display);font-weight:800;font-size:22px;margin:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -131,8 +148,31 @@ const screen = $('screen');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' so‘m';
 
+// Menyudagi barcha kategoriyalar (asosiy bazadagi nomlar). Mahsuloti yoʻqlari "Tez orada" boʻlib turadi.
+const CATS = [
+  ['Futbol', '⚽'], ['Fitnes va trenajyor', '🏋️'], ['Suzish', '🏊'], ['Boks va yakkakurash', '🥊'],
+  ['Gimnastika va yoga', '🧘'], ['Sport bandajlari', '🦵'], ['Sport kiyimlari', '👕'], ['Sport butilkalari', '🥤'],
+  ['Stol tennisi', '🏓'], ['Massaj va tiklanish', '💆'], ['Rolik sporti', '🛼'], ['Tennis va badminton', '🏸'],
+  ['Velosiped', '🚴'], ['Voleybol', '🏐']
+];
+const catIcon = c => (CATS.find(x => x[0] === c) || [0, '🏅'])[1];
+// Kategoriya ichidagi boʻlimlar mahsulot nomidan aniqlanadi (tartib muhim: birinchi mos kelgani olinadi).
+const SUBS = {
+  'Futbol': [
+    ['Mashq jihozlari', /trenajyor|tasma|konus|nasos/i],
+    ['Darvozabon qoʻlqoplari', /qo.lqop/i],
+    ['Butsalar', /butsa|butsi|futzal|poyabzal/i],
+    ['Toʻplar', /to.p/i],
+    ['Futbol formasi', /forma/i],
+    ['Boshqa', /./]
+  ]
+};
+// Chiplarda koʻrinish tartibi
+const SUB_ORDER = { 'Futbol': ['Toʻplar', 'Butsalar', 'Darvozabon qoʻlqoplari', 'Futbol formasi', 'Mashq jihozlari', 'Boshqa'] };
+const subOf = p => { const r = (SUBS[p.cat] || []).find(x => x[1].test(p.name)); return r ? r[0] : ''; };
+
 let DATA = null;
-let state = { view: 'cat', cat: '', q: '', pid: null, color: null, vid: null, img: 0 };
+let state = { view: 'home', cat: '', sub: '', q: '', pid: null, color: null, vid: null, img: 0 };
 let cart = load('cart', []);
 const form = load('form', { name: '', phone: '', comment: '' });
 
@@ -150,12 +190,12 @@ function setMain(text, fn, disabled) {
 function badge() { const n = cart.reduce((a, i) => a + i.q, 0); $('badge').textContent = n; $('badge').hidden = !n; }
 function go(v) { state.view = v; render(); window.scrollTo(0, 0); }
 function render() {
-  ({ cat: renderCat, prod: renderProd, cart: renderCart, form: renderForm, done: renderDone })[state.view]();
+  ({ home: renderHome, cat: renderCat, prod: renderProd, cart: renderCart, form: renderForm, done: renderDone })[state.view]();
   if (tg) {
-    if (state.view === 'cat' || state.view === 'done') tg.BackButton.hide(); else tg.BackButton.show();
+    if (state.view === 'home' || state.view === 'done') tg.BackButton.hide(); else tg.BackButton.show();
   }
 }
-if (tg) tg.BackButton.onClick(() => go(state.view === 'form' ? 'cart' : 'cat'));
+if (tg) tg.BackButton.onClick(() => go(state.view === 'form' ? 'cart' : state.view === 'cat' ? 'home' : (state.cat ? 'cat' : 'home')));
 
 const media = (url, video, cls) => video
   ? `<video src="${esc(video)}" ${url ? `poster="${esc(url)}"` : ''} autoplay muted loop playsinline></video>`
@@ -177,33 +217,68 @@ const product = id => DATA.products.find(p => p.id === id);
 const variant = vid => { for (const p of DATA.products) for (const v of p.variants) if (v.id === vid) return [p, v]; return []; };
 const minPrice = p => Math.min.apply(null, p.variants.filter(v => v.available).map(v => v.price));
 
-// ---------------------------------------------------------------- Katalog
+// ---------------------------------------------------------------- Bosh sahifa
+const searchBox = () => `<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <input id="q" placeholder="Mahsulot qidirish" value="${esc(state.q)}" enterkeyhint="search"></label>`;
+function bindSearch(rerender) {
+  const qi = $('q');
+  qi.oninput = () => { state.q = qi.value; const pos = qi.selectionStart; rerender(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
+}
+function cards(list) {
+  return `<div class="grid">${list.map((p, i) => {
+    const v = p.variants.find(x => x.available) || p.variants[0];
+    const img = p.photos[0] || v.photo;
+    const sale = p.variants.some(x => x.available && x.oldPrice);
+    const pct = v.oldPrice ? Math.round((1 - v.price / v.oldPrice) * 100) : 0;
+    return `<button class="card" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
+      <div class="thumb">${media(img, p.video, 'loading="lazy"')}${pct ? `<span class="disc">−${pct}%</span>` : ''}</div>
+      <div class="nm">${esc(p.name)}</div>
+      <div><span class="price ${sale ? 'sale' : ''}">${p.variants.filter(x => x.available).some(x => x.price !== minPrice(p)) ? 'dan ' : ''}${fmt(minPrice(p))}</span></div>
+      ${v.oldPrice ? `<div class="old">${fmt(v.oldPrice)}</div>` : ''}
+    </button>`; }).join('')}</div>`;
+}
+function bindCards() { screen.querySelectorAll('.card').forEach(b => b.onclick = () => openProd(b.dataset.p)); }
+function cartMain() { const n = cart.reduce((a, i) => a + i.q, 0); setMain(n ? `Savat · ${fmt(cartTotal())}` : '', () => go('cart')); }
+
+function renderHome() {
+  const q = state.q.toLowerCase();
+  if (q) {
+    const list = DATA.products.filter(p => p.name.toLowerCase().includes(q));
+    screen.innerHTML = searchBox() + cards(list) + (list.length ? '' : '<div class="empty">Hech narsa topilmadi</div>');
+    bindCards(); bindSearch(renderHome); cartMain();
+    return;
+  }
+  const count = c => DATA.products.filter(p => p.cat === c).length;
+  const extra = [...new Set(DATA.products.map(p => p.cat))].filter(c => c && !CATS.some(x => x[0] === c)).map(c => [c, '🏅']);
+  const all = CATS.concat(extra).map(([c, ic]) => [c, ic, count(c)]).sort((a, b) => (b[2] > 0) - (a[2] > 0));
+  screen.innerHTML = `${searchBox()}
+    <div class="hero"><h2>Sport anjomlari bir joyda</h2><p>Tanlang, buyurtma bering. Menejerimiz oʻzi bogʻlanadi.</p><span class="ball" aria-hidden="true">⚽</span></div>
+    <div class="sec">Kategoriyalar</div>
+    <div class="cats">${all.map(([c, ic, n], i) => `<button class="cat ${n ? '' : 'soon'}" data-c="${esc(c)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
+      <span class="ic" aria-hidden="true">${ic}</span><span class="cn">${esc(c)}</span><span class="cc">${n ? n + ' ta' : 'Tez orada'}</span></button>`).join('')}</div>`;
+  screen.querySelectorAll('.cat').forEach(b => b.onclick = () => {
+    if (!count(b.dataset.c)) { toast('Bu kategoriya tez orada ochiladi'); return; }
+    state.cat = b.dataset.c; state.sub = ''; go('cat');
+  });
+  bindSearch(renderHome); cartMain();
+}
+
+// ---------------------------------------------------------------- Kategoriya
 function renderCat() {
   const q = state.q.toLowerCase();
-  const cats = [...new Set(DATA.products.map(p => p.cat).filter(Boolean))];
-  const list = DATA.products.filter(p => (!state.cat || p.cat === state.cat) && (!q || p.name.toLowerCase().includes(q)));
+  const inCat = DATA.products.filter(p => p.cat === state.cat);
+  const subs = (SUB_ORDER[state.cat] || []).filter(s => inCat.some(p => subOf(p) === s));
+  const list = inCat.filter(p => (!state.sub || subOf(p) === state.sub) && (!q || p.name.toLowerCase().includes(q)));
   screen.innerHTML = `
-    <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" placeholder="Mahsulot qidirish" value="${esc(state.q)}" enterkeyhint="search"></label>
-    ${cats.length > 1 ? `<div class="chips"><button class="chip" data-c="" aria-pressed="${!state.cat}">Barchasi</button>${cats.map(c => `<button class="chip" data-c="${esc(c)}" aria-pressed="${state.cat === c}">${esc(c)}</button>`).join('')}</div>` : ''}
-    <div class="grid">${list.map((p, i) => {
-      const v = p.variants.find(x => x.available) || p.variants[0];
-      const img = p.photos[0] || v.photo;
-      const sale = p.variants.some(x => x.available && x.oldPrice);
-      const pct = v.oldPrice ? Math.round((1 - v.price / v.oldPrice) * 100) : 0;
-      return `<button class="card" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
-        <div class="thumb">${media(img, p.video, 'loading="lazy"')}${pct ? `<span class="disc">−${pct}%</span>` : ''}</div>
-        <div class="nm">${esc(p.name)}</div>
-        <div><span class="price ${sale ? 'sale' : ''}">${p.variants.filter(x => x.available).some(x => x.price !== minPrice(p)) ? 'dan ' : ''}${fmt(minPrice(p))}</span></div>
-        ${v.oldPrice ? `<div class="old">${fmt(v.oldPrice)}</div>` : ''}
-      </button>`; }).join('')}</div>
-    ${list.length ? '' : `<div class="empty">${DATA.products.length ? 'Hech narsa topilmadi' : 'Hozircha sotuvda mahsulot yoʻq'}</div>`}`;
-  screen.querySelectorAll('.chip').forEach(b => b.onclick = () => { state.cat = b.dataset.c; renderCat(); });
-  screen.querySelectorAll('.card').forEach(b => b.onclick = () => openProd(b.dataset.p));
-  const qi = $('q');
-  qi.oninput = () => { state.q = qi.value; const pos = qi.selectionStart; renderCat(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
-  const n = cart.reduce((a, i) => a + i.q, 0);
-  setMain(n ? `Savat · ${fmt(cartTotal())}` : '', () => go('cart'));
+    <button class="back" id="bk">← Kategoriyalar</button>
+    <div class="chead"><span class="ic" aria-hidden="true">${catIcon(state.cat)}</span><h1>${esc(state.cat)}</h1></div>
+    ${searchBox()}
+    ${subs.length > 1 ? `<div class="chips"><button class="chip" data-s="" aria-pressed="${!state.sub}">Barchasi</button>${subs.map(s => `<button class="chip" data-s="${esc(s)}" aria-pressed="${state.sub === s}">${esc(s)}</button>`).join('')}</div>` : ''}
+    ${cards(list)}
+    ${list.length ? '' : '<div class="empty">Hech narsa topilmadi</div>'}`;
+  $('bk').onclick = () => { state.q = ''; go('home'); };
+  screen.querySelectorAll('.chip').forEach(b => b.onclick = () => { state.sub = b.dataset.s; renderCat(); });
+  bindCards(); bindSearch(renderCat); cartMain();
 }
 
 // ---------------------------------------------------------------- Mahsulot
@@ -215,7 +290,7 @@ function colors(p) {
 function openProd(id) {
   const p = product(id);
   const v = p.variants.find(x => x.available) || p.variants[0];
-  state.pid = id; state.color = v.color; state.vid = v.available ? v.id : null; state.img = 0; state.anim = true;
+  state.pid = id; state.cat = p.cat || state.cat; state.color = v.color; state.vid = v.available ? v.id : null; state.img = 0; state.anim = true;
   go('prod'); state.anim = false;
 }
 function renderProd() {
@@ -229,7 +304,7 @@ function renderProd() {
   const shown = v || inColor.find(x => x.available) || inColor[0];
   const hasOpt = p.variants.some(x => x.option);
   screen.innerHTML = `
-    <button class="back" id="bk">← Katalog</button>
+    <button class="back" id="bk">← ${esc(state.cat || 'Katalog')}</button>
     <div class="gallery${state.anim ? ' enter' : ''}" id="gal">${state.img === 0 && p.spin && p.spin.length > 3
       ? `<img id="spin" src="${esc(p.spin[0])}" alt="${esc(p.name)}" draggable="false"><span class="spin-hint">↔ 360°</span>`
       : media(pics[state.img], state.img === 0 ? p.video : '')}</div>
@@ -247,7 +322,7 @@ function renderProd() {
       ${inColor.some(x => x.available) ? '' : '<p class="note">Bu rang hozircha tugagan.</p>'}
       <p class="note">Buyurtmadan keyin menejerimiz siz bilan bogʻlanib, toʻlov va yetkazishni kelishib oladi.</p>
     </div>`;
-  $('bk').onclick = () => go('cat');
+  $('bk').onclick = () => go(state.cat ? 'cat' : 'home');
   if ($('spin')) spin360($('spin'), p.spin);
   screen.querySelectorAll('.strip button').forEach(b => b.onclick = () => { state.img = +b.dataset.i; renderProd(); });
   screen.querySelectorAll('.col').forEach(b => b.onclick = () => {
@@ -274,8 +349,8 @@ function renderCart() {
   if (lines.length !== cart.length) { cart = lines.map(l => l.i); save('cart', cart); badge(); }
   if (!lines.length) {
     screen.innerHTML = `<button class="back" id="bk">← Katalog</button><div class="empty">Savat boʻsh.<br>Katalogdan mahsulot tanlang.</div>`;
-    $('bk').onclick = () => go('cat');
-    setMain('Katalogga qaytish', () => go('cat'));
+    $('bk').onclick = () => go('home');
+    setMain('Katalogga qaytish', () => go('home'));
     return;
   }
   screen.innerHTML = `<button class="back" id="bk">← Katalog</button><div class="ctitle">Savat</div>
@@ -286,7 +361,7 @@ function renderCart() {
     </div></div>`).join('')}
     <div class="sum"><span>Jami</span><span>${fmt(cartTotal())}</span></div>
     <p class="note" style="margin:0 16px">Yetkazish narxini menejer siz bilan kelishadi.</p>`;
-  $('bk').onclick = () => go('cat');
+  $('bk').onclick = () => go('home');
   screen.querySelectorAll('.qty button').forEach(b => b.onclick = () => {
     const i = cart[+b.dataset.k]; i.q = Math.min(20, i.q + +b.dataset.d);
     if (i.q < 1) cart.splice(+b.dataset.k, 1);
@@ -331,7 +406,7 @@ async function submit() {
 function renderDone() {
   screen.innerHTML = `<div class="done"><div class="ring">✓</div><h2>Buyurtma qabul qilindi</h2><code>${esc(state.orderNo)}</code>
     <p>Rahmat! Menejerimiz tez orada siz bilan bogʻlanib, toʻlov va yetkazishni kelishib oladi.</p></div>`;
-  setMain('Xaridni davom ettirish', () => go('cat'));
+  setMain('Xaridni davom ettirish', () => go('home'));
 }
 
 // ---------------------------------------------------------------- Yuklash
