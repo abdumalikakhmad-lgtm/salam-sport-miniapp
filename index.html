@@ -42,6 +42,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .price{font-family:var(--display);font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
 .price.sale{color:var(--red)}
 .old{font-size:12px;color:var(--muted);text-decoration:line-through;font-variant-numeric:tabular-nums}
+.card.soon .thumb img{filter:grayscale(.35);opacity:.8}
+.soonb{position:absolute;top:8px;left:8px;background:var(--ink);color:#fff;font:800 11px var(--display);padding:3px 7px;border-radius:6px}
+.soont{font-family:var(--display);font-weight:800;font-size:15px;color:var(--muted)}
 .empty{padding:48px 24px;text-align:center;color:var(--muted);line-height:1.5}
 .gallery{position:relative;margin:0 16px;border-radius:18px;overflow:hidden;aspect-ratio:1/1;background:var(--surface)}
 .strip{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none}
@@ -225,11 +228,15 @@ function bindSearch(rerender) {
   qi.oninput = () => { state.q = qi.value; const pos = qi.selectionStart; rerender(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 function cards(list) {
+  list = list.slice().sort((a, b) => !!a.soon - !!b.soon);
   return `<div class="grid">${list.map((p, i) => {
     const v = p.variants.find(x => x.available) || p.variants[0];
     const img = p.photos[0] || v.photo;
     const sale = p.variants.some(x => x.available && x.oldPrice);
     const pct = v.oldPrice ? Math.round((1 - v.price / v.oldPrice) * 100) : 0;
+    if (p.soon) return `<button class="card soon" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
+      <div class="thumb">${media(img, p.video, 'loading="lazy"')}<span class="soonb">Tez orada</span></div>
+      <div class="nm">${esc(p.name)}</div><div class="soont">Tez orada</div></button>`;
     return `<button class="card" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
       <div class="thumb">${media(img, p.video, 'loading="lazy"')}${pct ? `<span class="disc">−${pct}%</span>` : ''}</div>
       <div class="nm">${esc(p.name)}</div>
@@ -248,7 +255,8 @@ function renderHome() {
     bindCards(); bindSearch(renderHome); cartMain();
     return;
   }
-  const count = c => DATA.products.filter(p => p.cat === c).length;
+  const count = c => DATA.products.filter(p => p.cat === c && !p.soon).length;
+  const any = c => DATA.products.some(p => p.cat === c);
   const extra = [...new Set(DATA.products.map(p => p.cat))].filter(c => c && !CATS.some(x => x[0] === c)).map(c => [c, '🏅']);
   const all = CATS.concat(extra).map(([c, ic]) => [c, ic, count(c)]).sort((a, b) => (b[2] > 0) - (a[2] > 0));
   screen.innerHTML = `${searchBox()}
@@ -257,7 +265,7 @@ function renderHome() {
     <div class="cats">${all.map(([c, ic, n], i) => `<button class="cat ${n ? '' : 'soon'}" data-c="${esc(c)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
       <span class="ic" aria-hidden="true">${ic}</span><span class="cn">${esc(c)}</span><span class="cc">${n ? n + ' ta' : 'Tez orada'}</span></button>`).join('')}</div>`;
   screen.querySelectorAll('.cat').forEach(b => b.onclick = () => {
-    if (!count(b.dataset.c)) { toast('Bu kategoriya tez orada ochiladi'); return; }
+    if (!any(b.dataset.c)) { toast('Bu kategoriya tez orada ochiladi'); return; }
     state.cat = b.dataset.c; state.sub = ''; go('cat');
   });
   bindSearch(renderHome); cartMain();
@@ -295,6 +303,19 @@ function openProd(id) {
 }
 function renderProd() {
   const p = product(state.pid);
+  if (p.soon) {
+    const pics = p.photos.length ? p.photos : [p.variants[0] && p.variants[0].photo].filter(Boolean);
+    if (state.img >= pics.length) state.img = 0;
+    screen.innerHTML = `<button class="back" id="bk">← ${esc(state.cat || 'Katalog')}</button>
+      <div class="gallery">${media(pics[state.img], '')}</div>
+      ${pics.length > 1 ? `<div class="strip">${pics.map((u, i) => `<button data-i="${i}" aria-current="${i === state.img}" aria-label="Rasm ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      <div class="pbody"><h1>${esc(p.name)}</h1><div class="prow"><span class="soont" style="font-size:20px">Tez orada sotuvda</span></div>
+      <p class="note">Bu mahsulot tez orada sotuvga chiqadi. Hozir buyurtma berib boʻlmaydi.</p></div>`;
+    $('bk').onclick = () => go(state.cat ? 'cat' : 'home');
+    screen.querySelectorAll('.strip button').forEach(b => b.onclick = () => { state.img = +b.dataset.i; renderProd(); });
+    setMain('Tez orada', null, true);
+    return;
+  }
   const cols = colors(p);
   const inColor = p.variants.filter(v => v.color === state.color);
   const v = p.variants.find(x => x.id === state.vid);
