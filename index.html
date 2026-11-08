@@ -105,8 +105,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 @keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .skel{background:linear-gradient(90deg,var(--surface),#ecebeb,var(--surface));background-size:200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
-.hero{margin:12px 16px 4px;border-radius:18px;overflow:hidden;line-height:0;background:#141212}
-.hero img{display:block;width:100%;height:auto}
+.hero{margin:12px 16px 4px;border-radius:18px;overflow:hidden;line-height:0;background:#141212;position:relative}
+.hero .track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.hero .track::-webkit-scrollbar{display:none}
+.hero .slide{flex:0 0 100%;scroll-snap-align:center;aspect-ratio:16/9}
+.hero .slide img,.hero .slide video{display:block;width:100%;height:100%;object-fit:cover}
+.hero .dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;line-height:0}
+.hero .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5)}.hero .dots i.on{background:#fff}
 .hero .ball{position:absolute;right:-14px;bottom:-18px;font-size:84px;line-height:1;opacity:.95;animation:roll 6s ease-in-out infinite}
 @keyframes roll{0%,100%{transform:rotate(0)}50%{transform:rotate(25deg) translateX(-6px)}}
 .sec{font-family:var(--display);font-weight:800;font-size:18px;margin:16px 16px 10px}
@@ -172,6 +177,26 @@ const SUBS = {
 // Chiplarda koʻrinish tartibi
 const SUB_ORDER = { 'Futbol': ['Toʻplar', 'Butsalar', 'Darvozabon qoʻlqoplari', 'Futbol formasi', 'Mashq jihozlari', 'Boshqa'] };
 const subOf = p => { const r = (SUBS[p.cat] || []).find(x => x[1].test(p.name)); return r ? r[0] : ''; };
+
+
+// Reklama bannerlari: {img} yoki {video, poster}. Ro‘yxatga qo‘shilsa, bosh sahifada surib ko‘riladi.
+const BANNERS = [
+  { img: 'post/hero.jpg' }
+];
+let heroTimer = null;
+function initHero() {
+  const h = $('hero'); if (!h || h.dataset.ok) return; h.dataset.ok = 1;
+  h.innerHTML = '<div class="track">' + BANNERS.map(b => '<div class="slide">' + (b.video
+    ? `<video src="${esc(b.video)}" ${b.poster ? `poster="${esc(b.poster)}"` : ''} autoplay muted loop playsinline></video>`
+    : `<img src="${esc(b.img)}" alt="SALAM SPORT">`) + '</div>').join('') + '</div>'
+    + (BANNERS.length > 1 ? '<div class="dots">' + BANNERS.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('') + '</div>' : '');
+  if (BANNERS.length < 2) return;
+  const t = h.querySelector('.track'), d = h.querySelectorAll('.dots i');
+  const cur = () => Math.round(t.scrollLeft / t.clientWidth);
+  t.addEventListener('scroll', () => d.forEach((x, i) => x.classList.toggle('on', i === cur())));
+  clearInterval(heroTimer);
+  heroTimer = setInterval(() => { if (!document.body.contains(t)) return clearInterval(heroTimer); t.scrollTo({ left: ((cur() + 1) % BANNERS.length) * t.clientWidth, behavior: 'smooth' }); }, 5000);
+}
 
 let DATA = null;
 let state = { view: 'home', cat: '', sub: '', q: '', pid: null, color: null, vid: null, img: 0 };
@@ -259,10 +284,11 @@ function renderHome() {
   const extra = [...new Set(DATA.products.map(p => p.cat))].filter(c => c && !CATS.some(x => x[0] === c)).map(c => [c, '🏅']);
   const all = CATS.concat(extra).map(([c, ic]) => [c, ic, count(c)]).sort((a, b) => (b[2] > 0) - (a[2] > 0));
   screen.innerHTML = `${searchBox()}
-    <div class="hero"><img src="post/hero.jpg" alt="SALAM SPORT: sport anjomlari bir joyda"></div>
+    <div class="hero" id="hero"></div>
     <div class="sec">Kategoriyalar</div>
     <div class="cats">${all.map(([c, ic, n], i) => `<button class="cat ${n ? '' : 'soon'}" data-c="${esc(c)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
       <span class="ic" aria-hidden="true">${ic}</span><span class="cn">${esc(c)}</span><span class="cc">${n ? n + ' ta' : 'Tez orada'}</span></button>`).join('')}</div>`;
+  initHero();
   screen.querySelectorAll('.cat').forEach(b => b.onclick = () => {
     if (!any(b.dataset.c)) { toast('Bu kategoriya tez orada ochiladi'); return; }
     state.cat = b.dataset.c; state.sub = ''; go('cat');
