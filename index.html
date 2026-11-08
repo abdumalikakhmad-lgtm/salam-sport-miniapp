@@ -46,6 +46,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .soonb{position:absolute;top:8px;left:8px;background:var(--ink);color:#fff;font:800 11px var(--display);padding:3px 7px;border-radius:6px}
 .soont{font-family:var(--display);font-weight:800;font-size:15px;color:var(--muted)}
 .empty{padding:48px 24px;text-align:center;color:var(--muted);line-height:1.5}
+.lb{position:fixed;inset:0;z-index:999;background:#000;display:flex;flex-direction:column}
+.lb .x{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;z-index:2;width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.18);color:#fff;font-size:20px;line-height:38px;padding:0;cursor:pointer}
+.lb .n{position:absolute;top:calc(env(safe-area-inset-top,0px) + 20px);left:16px;color:#fff;font:700 13px var(--display);z-index:2}
+.lb .tr{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}.lb .tr::-webkit-scrollbar{display:none}
+.lb .sl{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;overflow:auto;-webkit-overflow-scrolling:touch}
+.lb .sl img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .2s;touch-action:manipulation;user-select:none}
+.lb .sl.z{display:block}.lb .sl.z img{max-width:none;max-height:none;width:230%;height:auto;transition:none}
+.gallery{touch-action:pan-y}
 .gallery{position:relative;margin:0 16px;border-radius:18px;overflow:hidden;aspect-ratio:1/1;background:var(--surface)}
 .strip{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none}
 .strip::-webkit-scrollbar{display:none}
@@ -343,6 +351,38 @@ function openProd(id) {
   state.pid = id; state.cat = p.cat || state.cat; state.color = v.color; state.vid = v.available ? v.id : null; state.img = 0; state.anim = true;
   go('prod'); state.anim = false;
 }
+
+function openLightbox(pics, start) {
+  const o = document.createElement('div'); o.className = 'lb';
+  o.innerHTML = `<span class="n"></span><button class="x" aria-label="Yopish">✕</button><div class="tr">${pics.map(u => `<div class="sl"><img src="${esc(u)}" alt="" draggable="false"></div>`).join('')}</div>`;
+  document.body.appendChild(o);
+  const tr = o.querySelector('.tr'), n = o.querySelector('.n');
+  const cur = () => Math.round(tr.scrollLeft / tr.clientWidth);
+  const lab = () => { n.textContent = pics.length > 1 ? (cur() + 1) + ' / ' + pics.length : ''; };
+  tr.scrollLeft = start * tr.clientWidth; lab();
+  tr.addEventListener('scroll', lab);
+  const close = () => { o.remove(); if (tg) try { tg.BackButton.offClick(close); } catch (e) {} };
+  o.querySelector('.x').onclick = close;
+  o.querySelectorAll('.sl').forEach(sl => sl.onclick = e => {
+    if (e.target.closest('.x')) return;
+    const z = sl.classList.toggle('z');
+    tr.style.overflowX = z ? 'hidden' : '';
+    if (z) { sl.scrollLeft = (sl.scrollWidth - sl.clientWidth) / 2; sl.scrollTop = (sl.scrollHeight - sl.clientHeight) / 2; }
+  });
+}
+function bindGallery(pics) {
+  const g = $('gal') || screen.querySelector('.gallery'); if (!g || pics.length < 1) return;
+  let x0 = null, y0 = 0, moved = false;
+  g.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; moved = false; }, { passive: true });
+  g.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) && pics.length > 1) {
+      moved = true; state.img = (state.img + (dx < 0 ? 1 : pics.length - 1)) % pics.length; renderProd();
+    }
+  }, { passive: true });
+  g.addEventListener('click', () => { if (moved || g.querySelector('#spin')) return; openLightbox(pics, state.img); });
+}
 function renderProd() {
   const p = product(state.pid);
   if (p.soon) {
@@ -354,6 +394,7 @@ function renderProd() {
       <div class="pbody"><h1>${esc(p.name)}</h1><div class="prow"><span class="soont" style="font-size:20px">Tez orada sotuvda</span></div>
       <p class="note">Bu mahsulot tez orada sotuvga chiqadi. Hozir buyurtma berib boʻlmaydi.</p></div>`;
     $('bk').onclick = () => go(state.cat ? 'cat' : 'home');
+    bindGallery(pics);
     screen.querySelectorAll('.strip button').forEach(b => b.onclick = () => { state.img = +b.dataset.i; renderProd(); });
     setMain('Tez orada', null, true);
     return;
@@ -387,6 +428,7 @@ function renderProd() {
     </div>`;
   $('bk').onclick = () => go(state.cat ? 'cat' : 'home');
   if ($('spin')) spin360($('spin'), p.spin);
+  bindGallery(pics);
   screen.querySelectorAll('.strip button').forEach(b => b.onclick = () => { state.img = +b.dataset.i; renderProd(); });
   screen.querySelectorAll('.col').forEach(b => b.onclick = () => {
     state.color = b.dataset.c; state.img = 0;
