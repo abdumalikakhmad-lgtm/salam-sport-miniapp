@@ -112,6 +112,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .hero .slide img,.hero .slide video{display:block;width:100%;height:100%;object-fit:cover}
 .hero .dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;line-height:0}
 .hero .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5)}.hero .dots i.on{background:#fff}
+.hero .snd{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:16px;line-height:34px;padding:0;cursor:pointer;display:none}.hero .snd.show{display:block}
 .hero .ball{position:absolute;right:-14px;bottom:-18px;font-size:84px;line-height:1;opacity:.95;animation:roll 6s ease-in-out infinite}
 @keyframes roll{0%,100%{transform:rotate(0)}50%{transform:rotate(25deg) translateX(-6px)}}
 .sec{font-family:var(--display);font-weight:800;font-size:18px;margin:16px 16px 10px}
@@ -192,7 +193,20 @@ function initHero() {
   h.innerHTML = '<div class="track">' + BANNERS.map(b => '<div class="slide">' + (b.video
     ? `<video src="${esc(b.video)}" ${b.poster ? `poster="${esc(b.poster)}"` : ''} autoplay muted loop playsinline></video>`
     : `<img src="${esc(b.img)}" alt="SALAM SPORT">`) + '</div>').join('') + '</div>'
+    + '<button class="snd" id="snd" aria-label="Ovoz">🔇</button>'
     + (BANNERS.length > 1 ? '<div class="dots">' + BANNERS.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('') + '</div>' : '');
+  const snd = h.querySelector('#snd'), vids = [...h.querySelectorAll('video')];
+  let on = false;
+  const slideIdx = () => { const tr = h.querySelector('.track'); return Math.round(tr.scrollLeft / tr.clientWidth); };
+  const sync = () => {
+    const cv = h.querySelectorAll('.slide')[slideIdx()]?.querySelector('video');
+    vids.forEach(v => { v.muted = !(on && v === cv); });
+    snd.classList.toggle('show', !!cv); snd.textContent = on ? '🔊' : '🔇';
+    vids.forEach(v => { if (v === cv && v.paused) v.play().catch(() => {}); });
+  };
+  snd.onclick = () => { on = !on; sync(); };
+  h.querySelector('.track').addEventListener('scroll', () => { clearTimeout(h._s); h._s = setTimeout(sync, 120); });
+  sync();
   if (BANNERS.length < 2) return;
   const t = h.querySelector('.track'), d = h.querySelectorAll('.dots i');
   const cur = () => Math.round(t.scrollLeft / t.clientWidth);
