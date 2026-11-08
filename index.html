@@ -181,7 +181,10 @@ const subOf = p => { const r = (SUBS[p.cat] || []).find(x => x[1].test(p.name));
 
 // Reklama bannerlari: {img} yoki {video, poster}. Ro‘yxatga qo‘shilsa, bosh sahifada surib ko‘riladi.
 const BANNERS = [
-  { img: 'post/hero.jpg' }
+  { img: 'post/hero.jpg' },
+  { video: 'post/banner-butsa.mp4' },
+  { video: 'post/banner-boks.mp4' },
+  { video: 'post/banner-shtanga.mp4' }
 ];
 let heroTimer = null;
 function initHero() {
