@@ -156,7 +156,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 // Apps Script web app manzili (Telegram sotuv bazasi → Развернуть → Веб-приложение)
 const API_URL = 'https://script.google.com/macros/s/AKfycby2yRk-mN8KfwnhA4r9Jm3VCrLeRllNiRRKBCwMu0inYykvudxW7YJyPQLPdrK_S-f8/exec';
 
-const tg = window.Telegram && window.Telegram.WebApp;
+const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
+// Buyurtma manbai: Telegram, Instagram yoki veb sayt
+const SRC = (() => {
+  if (tg) return 'telegram';
+  let v = '';
+  try { v = (new URLSearchParams(location.search).get('src') || '').toLowerCase(); } catch (e) {}
+  try { if (v) localStorage.setItem('ss_src', v); else v = localStorage.getItem('ss_src') || ''; } catch (e) {}
+  if (v === 'ig' || v === 'instagram' || /Instagram/i.test(navigator.userAgent)) return 'instagram';
+  return 'veb';
+})();
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#ffffff'); tg.setBackgroundColor('#ffffff'); } catch (e) {} }
 
 const $ = id => document.getElementById(id);
@@ -484,6 +493,8 @@ function renderForm() {
       <label>Ismingiz<input id="fn" value="${esc(form.name)}" autocomplete="name" maxlength="60"></label>
       <label>Telefon raqamingiz<input id="fp" value="${esc(form.phone)}" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="30"></label>
       <label>Izoh (ixtiyoriy)<textarea id="fc" rows="3" maxlength="300" placeholder="Masalan: qachon qoʻngʻiroq qilish qulay">${esc(form.comment)}</textarea></label>
+      <input id="fw" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0">
+      ${tg ? '' : '<p class="note">Buyurtmadan keyin menejerimiz koʻrsatilgan raqamga qoʻngʻiroq qiladi.</p>'}
     </form>
     <div class="sum"><span>Jami</span><span>${fmt(cartTotal())}</span></div>`;
   $('bk').onclick = () => go('cart');
@@ -493,11 +504,11 @@ function renderForm() {
 }
 async function submit() {
   if (!form.name.trim() || form.phone.replace(/\D/g, '').length < 9) { toast('Ism va telefon raqamini yozing'); return; }
-  if (!tg || !tg.initData) { toast('Buyurtmani Telegram ichidan bering'); return; }
+  const hp = document.getElementById('fw'); if (hp && hp.value) return;
   setMain('Yuborilmoqda…', null, true);
   try {
     const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ initData: tg.initData, items: cart, name: form.name, phone: form.phone, comment: form.comment }) });
+      body: JSON.stringify({ initData: tg ? tg.initData : '', src: SRC, website: hp ? hp.value : '', items: cart, name: form.name, phone: form.phone, comment: form.comment }) });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Xatolik');
     state.orderNo = d.no; cart = []; save('cart', cart); form.comment = ''; save('form', form); badge();
@@ -510,7 +521,7 @@ async function submit() {
 }
 function renderDone() {
   screen.innerHTML = `<div class="done"><div class="ring">✓</div><h2>Buyurtma qabul qilindi</h2><code>${esc(state.orderNo)}</code>
-    <p>Rahmat! Menejerimiz tez orada siz bilan bogʻlanib, toʻlov va yetkazishni kelishib oladi.</p></div>`;
+    <p>Rahmat! Menejerimiz tez orada siz bilan bogʻlanib, toʻlov va yetkazishni kelishib oladi.</p>${tg ? '' : '<p><a href="https://t.me/salamsport_uz" target="_blank" rel="noopener" style="color:var(--red);font-weight:700">Yangiliklar va aksiyalar: @salamsport_uz</a></p>'}</div>`;
   setMain('Xaridni davom ettirish', () => go('home'));
 }
 
