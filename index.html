@@ -528,7 +528,29 @@ function renderDone() {
 // ---------------------------------------------------------------- Yuklash
 $('cartBtn').onclick = () => go('cart');
 screen.innerHTML = `<div class="grid" style="padding-top:16px">${'<div><div class="thumb skel"></div><div class="nm skel" style="border-radius:6px"></div></div>'.repeat(4)}</div>`;
-fetch(API_URL + '?a=catalog').then(r => r.json()).then(d => {
+// Rasmlar: avval o‘z omborimizdan (img/manifest.json), topilmasa Uzum havolasi
+const IMG_FB = {};
+document.addEventListener('error', e => {
+  const t = e.target; if (!t || t.tagName !== 'IMG' || t.dataset.fb) return;
+  let k = ''; try { k = new URL(t.src, location.href).pathname; } catch (x) {}
+  if (IMG_FB[k]) { t.dataset.fb = 1; t.src = IMG_FB[k]; }
+}, true);
+function applyManifest(d, m) {
+  (d.products || []).forEach(p => {
+    const mine = m[p.id]; if (!mine || !mine.length) return;
+    const old = p.photos || [];
+    p.photos = mine.map((u, i) => {
+      const abs = new URL(u, location.href);
+      if (old[i] || old[0]) IMG_FB[abs.pathname] = old[i] || old[0];
+      return u;
+    });
+  });
+}
+Promise.all([
+  fetch(API_URL + '?a=catalog').then(r => r.json()),
+  fetch('img/manifest.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+]).then(([d, m]) => {
+  try { applyManifest(d, m); } catch (e) {}
   DATA = d; badge(); render();
 }).catch(() => {
   screen.innerHTML = `<div class="empty">Katalogni yuklab boʻlmadi.<br>Internetni tekshirib, qayta oching.</div>`;
