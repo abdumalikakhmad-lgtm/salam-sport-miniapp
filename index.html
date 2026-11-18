@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>SALAM SPORT</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
+<link rel="preconnect" href="https://images.uzum.uz">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Manrope:wght@500;600;700&display=swap">
 <style>
@@ -208,7 +212,7 @@ let heroTimer = null;
 function initHero() {
   const h = $('hero'); if (!h || h.dataset.ok) return; h.dataset.ok = 1;
   h.innerHTML = '<div class="track">' + BANNERS.map(b => '<div class="slide">' + (b.video
-    ? `<video src="${esc(b.video)}" ${b.poster ? `poster="${esc(b.poster)}"` : ''} autoplay muted loop playsinline></video>`
+    ? `<video src="${esc(b.video)}" ${b.poster ? `poster="${esc(b.poster)}"` : ''} preload="none" muted loop playsinline></video>`
     : `<img src="${esc(b.img)}" alt="SALAM SPORT">`) + '</div>').join('') + '</div>'
     + '<button class="snd" id="snd" aria-label="Ovoz">🔇</button>'
     + (BANNERS.length > 1 ? '<div class="dots">' + BANNERS.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('') + '</div>' : '');
@@ -219,7 +223,7 @@ function initHero() {
     const cv = h.querySelectorAll('.slide')[slideIdx()]?.querySelector('video');
     vids.forEach(v => { v.muted = !(on && v === cv); });
     snd.classList.toggle('show', !!cv); snd.textContent = on ? '🔊' : '🔇';
-    vids.forEach(v => { if (v === cv && v.paused) v.play().catch(() => {}); });
+    vids.forEach(v => { if (v === cv) { if (v.paused) v.play().catch(() => {}); } else if (!v.paused) v.pause(); });
   };
   snd.onclick = () => { on = !on; sync(); };
   h.querySelector('.track').addEventListener('scroll', () => { clearTimeout(h._s); h._s = setTimeout(sync, 120); });
@@ -546,13 +550,20 @@ function applyManifest(d, m) {
     });
   });
 }
+let cachedCat = null;
+try { cachedCat = JSON.parse(localStorage.getItem('ss_catalog') || 'null'); } catch (e) {}
+if (cachedCat && cachedCat.products) { DATA = cachedCat; badge(); render(); }
 Promise.all([
   fetch(API_URL + '?a=catalog').then(r => r.json()),
   fetch('img/manifest.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ]).then(([d, m]) => {
   try { applyManifest(d, m); } catch (e) {}
-  DATA = d; badge(); render();
+  try { localStorage.setItem('ss_catalog', JSON.stringify(d)); } catch (e) {}
+  const first = !DATA;
+  DATA = d; badge();
+  if (first || state.view !== 'form') render();
 }).catch(() => {
+  if (DATA) return;
   screen.innerHTML = `<div class="empty">Katalogni yuklab boʻlmadi.<br>Internetni tekshirib, qayta oching.</div>`;
 });
 </script>
