@@ -223,7 +223,7 @@ function initHero() {
     const cv = h.querySelectorAll('.slide')[slideIdx()]?.querySelector('video');
     vids.forEach(v => { v.muted = !(on && v === cv); });
     snd.classList.toggle('show', !!cv); snd.textContent = on ? '🔊' : '🔇';
-    vids.forEach(v => { if (v === cv) { if (v.paused) v.play().catch(() => {}); } else if (!v.paused) v.pause(); });
+    vids.forEach(v => { v.playbackRate = 0.75; if (v === cv) { if (v.paused) v.play().catch(() => {}); } else if (!v.paused) v.pause(); });
   };
   snd.onclick = () => { on = !on; sync(); };
   h.querySelector('.track').addEventListener('scroll', () => { clearTimeout(h._s); h._s = setTimeout(sync, 120); });
@@ -233,7 +233,7 @@ function initHero() {
   const cur = () => Math.round(t.scrollLeft / t.clientWidth);
   t.addEventListener('scroll', () => d.forEach((x, i) => x.classList.toggle('on', i === cur())));
   clearInterval(heroTimer);
-  heroTimer = setInterval(() => { if (!document.body.contains(t)) return clearInterval(heroTimer); t.scrollTo({ left: ((cur() + 1) % BANNERS.length) * t.clientWidth, behavior: 'smooth' }); }, 5000);
+  heroTimer = setInterval(() => { if (!document.body.contains(t)) return clearInterval(heroTimer); t.scrollTo({ left: ((cur() + 1) % BANNERS.length) * t.clientWidth, behavior: 'smooth' }); }, 9000);
 }
 
 let DATA = null;
@@ -262,9 +262,11 @@ function render() {
 }
 if (tg) tg.BackButton.onClick(() => go(state.view === 'form' ? 'cart' : state.view === 'cat' ? 'home' : (state.cat ? 'cat' : 'home')));
 
+// Roʻyxatdagi kartalar uchun Uzum rasmining kichik varianti; ochilmasa asl rasmga qaytadi
+const thumb = u => /images\.uzum\.uz\/.*\/t_product_540_high\.jpg$/.test(u || '') ? u.replace('t_product_540_high', 't_product_240_low') : u;
 const media = (url, video, cls) => video
   ? `<video src="${esc(video)}" ${url ? `poster="${esc(url)}"` : ''} autoplay muted loop playsinline></video>`
-  : (url ? `<img src="${esc(url)}" alt="" ${cls || ''}>` : '');
+  : (url ? `<img src="${esc(cls && cls.includes('lazy') ? thumb(url) : url)}" data-o="${esc(url)}" alt="" ${cls || ''}>` : '');
 /** 360°: kadrlar o‘zi sekin aylanadi, barmoq bilan surilsa qo‘lda aylanadi. */
 let spinTimer = null;
 function spin360(img, frames) {
@@ -535,7 +537,9 @@ screen.innerHTML = `<div class="grid" style="padding-top:16px">${'<div><div clas
 // Rasmlar: avval o‘z omborimizdan (img/manifest.json), topilmasa Uzum havolasi
 const IMG_FB = {};
 document.addEventListener('error', e => {
-  const t = e.target; if (!t || t.tagName !== 'IMG' || t.dataset.fb) return;
+  const t = e.target; if (!t || t.tagName !== 'IMG') return;
+  if (t.dataset.o && !t.dataset.o2 && t.src !== t.dataset.o && !t.dataset.fb) { t.dataset.o2 = 1; t.src = t.dataset.o; return; }
+  if (t.dataset.fb) return;
   let k = ''; try { k = new URL(t.src, location.href).pathname; } catch (x) {}
   if (IMG_FB[k]) { t.dataset.fb = 1; t.src = IMG_FB[k]; }
 }, true);
@@ -554,7 +558,8 @@ let cachedCat = null;
 try { cachedCat = JSON.parse(localStorage.getItem('ss_catalog') || 'null'); } catch (e) {}
 if (cachedCat && cachedCat.products) { DATA = cachedCat; badge(); render(); }
 Promise.all([
-  fetch(API_URL + '?a=catalog').then(r => r.json()),
+  fetch('data.json?v=' + Math.floor(Date.now() / 300000)).then(r => { if (!r.ok) throw 0; return r.json(); })
+    .catch(() => fetch(API_URL + '?a=catalog').then(r => r.json())),
   fetch('img/manifest.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
 ]).then(([d, m]) => {
   try { applyManifest(d, m); } catch (e) {}
