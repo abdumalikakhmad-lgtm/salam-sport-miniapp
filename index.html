@@ -33,6 +33,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .back{border:0;background:none;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;padding:12px 16px;cursor:pointer}
 .search{margin:12px 16px 10px;display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:12px;padding:10px 12px;color:var(--muted)}
 .search input{border:0;background:none;font:600 15px var(--body);flex:1;min-width:0;color:var(--ink);outline:none}
+.seg{display:flex;gap:8px;padding:4px 16px 12px}
+.seg button{flex:1 1 auto;min-width:0;white-space:nowrap;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.seg button[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red)}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer}
@@ -237,7 +240,7 @@ function initHero() {
 }
 
 let DATA = null;
-let state = { view: 'home', cat: '', sub: '', q: '', pid: null, color: null, vid: null, img: 0 };
+let state = { sec: (function(){ try { return localStorage.getItem('ss_sec') || 'sport'; } catch (e) { return 'sport'; } })(), view: 'home', cat: '', sub: '', q: '', pid: null, color: null, vid: null, img: 0 };
 let cart = load('cart', []);
 const form = load('form', { name: '', phone: '', comment: '' });
 
@@ -322,13 +325,19 @@ function renderHome() {
   const count = c => DATA.products.filter(p => p.cat === c && !p.soon).length;
   const any = c => DATA.products.some(p => p.cat === c);
   const extra = [...new Set(DATA.products.map(p => p.cat))].filter(c => c && !CATS.some(x => x[0] === c)).map(c => [c, '🏅']);
-  const all = CATS.concat(extra).map(([c, ic]) => [c, ic, count(c)]).sort((a, b) => (b[2] > 0) - (a[2] > 0));
+  const elekCats = new Set(DATA.products.filter(p => /^ELK/.test(p.id)).map(p => p.cat));
+  elekCats.add('Smart soat va gadjetlar');
+  const sec = ['elek', 'mebel'].includes(state.sec) ? state.sec : 'sport';
+  const all = CATS.concat(extra).filter(([c]) => (elekCats.has(c) ? 'elek' : 'sport') === sec)
+    .map(([c, ic]) => [c, ic, count(c)]).sort((a, b) => (b[2] > 0) - (a[2] > 0));
   screen.innerHTML = `${searchBox()}
-    <div class="hero" id="hero"></div>
+    <div class="seg"><button data-s="sport" style="flex:0 0 auto" aria-pressed="${sec === 'sport'}">🏅 Sport</button><button data-s="elek" aria-pressed="${sec === 'elek'}">🔌 Maishiy texnika</button><button data-s="mebel" style="flex:0 0 auto" aria-pressed="${sec === 'mebel'}">🛋️ Mebel</button></div>
+    ${sec === 'sport' ? '<div class="hero" id="hero"></div>' : ''}
     <div class="sec">Kategoriyalar</div>
-    <div class="cats">${all.map(([c, ic, n], i) => `<button class="cat ${n ? '' : 'soon'}" data-c="${esc(c)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
+    ${sec === 'mebel' ? '<div class="empty">Mebel bo‘limi tez orada ochiladi</div>' : ''}<div class="cats">${all.map(([c, ic, n], i) => `<button class="cat ${n ? '' : 'soon'}" data-c="${esc(c)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
       <span class="ic" aria-hidden="true">${ic}</span><span class="cn">${esc(c)}</span><span class="cc">${n ? n + ' ta' : 'Tez orada'}</span></button>`).join('')}</div>`;
   initHero();
+  screen.querySelectorAll('.seg button').forEach(b => b.onclick = () => { state.sec = b.dataset.s; try { localStorage.setItem('ss_sec', state.sec); } catch (e) {} renderHome(); });
   screen.querySelectorAll('.cat').forEach(b => b.onclick = () => {
     if (!any(b.dataset.c)) { toast('Bu kategoriya tez orada ochiladi'); return; }
     state.cat = b.dataset.c; state.sub = ''; go('cat');
