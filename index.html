@@ -61,6 +61,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .lb .sl{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;overflow:auto;-webkit-overflow-scrolling:touch}
 .lb .sl img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .2s;touch-action:manipulation;user-select:none}
 .lb .sl.z{display:block}.lb .sl.z img{max-width:none;max-height:none;width:230%;height:auto;transition:none}
+.info{margin:18px 0 6px}
+.info h3{font-family:'Archivo',sans-serif;font-size:17px;margin:16px 0 8px}
+.idesc{font-size:14px;line-height:1.5;color:var(--ink);margin:0}
+.spec{width:100%;border-collapse:collapse;font-size:13px}
+.spec td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.spec td:first-child{color:var(--muted);width:42%;padding-right:10px}
+.spec td:last-child{font-weight:600}
 .gallery{touch-action:pan-y}
 .gallery{position:relative;margin:0 16px;border-radius:18px;overflow:hidden;aspect-ratio:3/4;background:var(--surface)}
 .gallery img{object-fit:contain!important}
@@ -467,6 +474,7 @@ function renderProd() {
       ${hasOpt ? `<div><div class="lbl">Oʻlcham${v && v.option ? `: <b>${esc(v.option)}</b>` : ''}</div><div class="opts">${inColor.map(x =>
         `<button class="sz" data-v="${esc(x.id)}" aria-pressed="${state.vid === x.id}" ${x.available ? '' : 'disabled'}>${esc(x.option || '—')}</button>`).join('')}</div></div>` : ''}
       ${inColor.some(x => x.available) ? '' : '<p class="note">Bu rang hozircha tugagan.</p>'}
+      ${infoBlock(p)}
       <p class="note">Buyurtmadan keyin menejerimiz siz bilan bogʻlanib, toʻlov va yetkazishni kelishib oladi.</p>
     </div>`;
   $('bk').onclick = () => go(state.cat ? 'cat' : 'home');
@@ -571,6 +579,12 @@ document.addEventListener('error', e => {
   let k = ''; try { k = new URL(t.src, location.href).pathname; } catch (x) {}
   if (IMG_FB[k]) { t.dataset.fb = 1; t.src = IMG_FB[k]; }
 }, true);
+let INFO = {};
+function infoBlock(p) {
+  const i = INFO[p.id]; if (!i) return '';
+  return `<div class="info">${i.d ? `<h3>Tavsif</h3><p class="idesc">${esc(i.d).replace(/\n/g, '<br>')}</p>` : ''}
+    ${(i.s && i.s.length) ? `<h3>Xususiyatlar</h3><table class="spec">${i.s.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table>` : ''}</div>`;
+}
 function applyManifest(d, m) {
   (d.products || []).forEach(p => {
     const mine = m[p.id]; if (!mine || !mine.length) return;
@@ -588,8 +602,10 @@ if (cachedCat && cachedCat.products) { DATA = cachedCat; badge(); render(); }
 Promise.all([
   fetch('data.json?v=' + Math.floor(Date.now() / 300000)).then(r => { if (!r.ok) throw 0; return r.json(); })
     .catch(() => fetch(API_URL + '?a=catalog').then(r => r.json())),
-  fetch('img/manifest.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
-]).then(([d, m]) => {
+  fetch('img/manifest.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fetch('info.json?v=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+]).then(([d, m, inf]) => {
+  INFO = inf || {};
   try { applyManifest(d, m); } catch (e) {}
   try { localStorage.setItem('ss_catalog', JSON.stringify(d)); } catch (e) {}
   const first = !DATA;
