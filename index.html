@@ -106,6 +106,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .main button{display:block;width:100%;max-width:496px;margin:0 auto;border:0;border-radius:14px;background:var(--red);color:#fff;font-weight:700;font-size:15px;padding:15px;cursor:pointer}
 .main button:disabled{background:#d9d4d4;cursor:not-allowed}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px;transition:opacity .2s;pointer-events:none;z-index:7;max-width:90vw;text-align:center}
+.sw{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.sw::-webkit-scrollbar{display:none}
+.sw img{flex:none;width:100%;scroll-snap-align:center;animation:none!important}
+.dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:4px;pointer-events:none}
+.dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 2px rgba(0,0,0,.4)}
+.dots i.on{background:#fff;width:14px;border-radius:3px}
 .thumb img,.thumb video{animation:float 4.5s ease-in-out infinite}
 .card:nth-child(2n) .thumb img{animation-delay:-2.2s}
 .card:nth-child(n){animation-delay:calc(var(--i,0) * 40ms)}
@@ -295,6 +301,11 @@ function bindSearch(rerender) {
   const qi = $('q');
   qi.oninput = () => { state.q = qi.value; const pos = qi.selectionStart; rerender(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
+function cardMedia(p, img) {
+  const ph = (p.photos || []).slice(0, 6);
+  if (p.video || ph.length < 2) return media(img, p.video, 'loading="lazy"');
+  return `<div class="sw">${ph.map(u => `<img src="${esc(thumb(u))}" data-o="${esc(u)}" alt="" loading="lazy">`).join('')}</div><div class="dots">${ph.map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div>`;
+}
 function cards(list) {
   list = list.slice().sort((a, b) => !!a.soon - !!b.soon);
   return `<div class="grid">${list.map((p, i) => {
@@ -303,16 +314,22 @@ function cards(list) {
     const sale = p.variants.some(x => x.available && x.oldPrice);
     const pct = v.oldPrice ? Math.round((1 - v.price / v.oldPrice) * 100) : 0;
     if (p.soon) return `<button class="card soon" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
-      <div class="thumb">${media(img, p.video, 'loading="lazy"')}<span class="soonb">Tez orada</span></div>
+      <div class="thumb">${cardMedia(p, img)}<span class="soonb">Tez orada</span></div>
       <div class="nm">${esc(p.name)}</div><div class="soont">Tez orada</div></button>`;
     return `<button class="card" data-p="${esc(p.id)}" style="--i:${Math.min(i, 12)}">
-      <div class="thumb">${media(img, p.video, 'loading="lazy"')}${pct ? `<span class="disc">−${pct}%</span>` : ''}</div>
+      <div class="thumb">${cardMedia(p, img)}${pct ? `<span class="disc">−${pct}%</span>` : ''}</div>
       <div class="nm">${esc(p.name)}</div>
       <div><span class="price ${sale ? 'sale' : ''}">${p.variants.filter(x => x.available).some(x => x.price !== minPrice(p)) ? 'dan ' : ''}${fmt(minPrice(p))}</span></div>
       ${v.oldPrice ? `<div class="old">${fmt(v.oldPrice)}</div>` : ''}
     </button>`; }).join('')}</div>`;
 }
-function bindCards() { screen.querySelectorAll('.card').forEach(b => b.onclick = () => openProd(b.dataset.p)); }
+function bindCards() {
+  screen.querySelectorAll('.card').forEach(b => b.onclick = () => openProd(b.dataset.p));
+  screen.querySelectorAll('.sw').forEach(sw => sw.addEventListener('scroll', () => {
+    const i = Math.round(sw.scrollLeft / sw.clientWidth), d = sw.nextElementSibling;
+    if (d) [...d.children].forEach((x, k) => x.classList.toggle('on', k === i));
+  }, { passive: true }));
+}
 function cartMain() { const n = cart.reduce((a, i) => a + i.q, 0); setMain(n ? `Savat · ${fmt(cartTotal())}` : '', () => go('cart')); }
 
 function renderHome() {
