@@ -348,7 +348,7 @@ function renderHome() {
     bindCards(); bindSearch(renderHome); cartMain();
     return;
   }
-  const count = c => DATA.products.filter(p => p.cat === c && !p.soon).length;
+  const count = c => DATA.products.filter(p => p.cat === c).length;
   const any = c => DATA.products.some(p => p.cat === c);
   const extra = [...new Set(DATA.products.map(p => p.cat))].filter(c => c && !CATS.some(x => x[0] === c)).map(c => [c, '🏅']);
   const elekCats = new Set(DATA.products.filter(p => /^ELK/.test(p.id)).map(p => p.cat));
